@@ -172,3 +172,223 @@ feature_engineering_task = PythonOperator(
 download_data_task >> preprocess_data_task >> feature_engineering_task
 ```
 ### Save the file ('Ctrl+X', then 'Y', then press Enter)
+
+```
+mkdir -p dags
+
+touch dags/stock_market_data_processing.py
+
+nano dags/stock_market_data_processing.py
+```
+```
+from datetime import datetime, timedelta
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+from src.etl.download_data import download_data
+from src.etl.preprocess_data import preprocess_data
+from src.etl.feature_engineering import feature_engineering
+from src.etl.train_model import train_model
+
+default_args = {
+    'owner': 'your_name',
+    'depends_on_past': False,
+    'start_date': datetime(2023, 4, 30),
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5)
+}
+
+dag = DAG(
+    'stock_market_data_processing',
+    default_args=default_args,
+    description='DAG for processing stock market data',
+    schedule_interval=timedelta(days=1)
+)
+
+download_data_task = PythonOperator(
+    task_id='download_data',
+    python_callable=download_data,
+    dag=dag
+)
+
+preprocess_data_task = PythonOperator(
+    task_id='preprocess_data',
+    python_callable=preprocess_data,
+    dag=dag
+)
+
+feature_engineering_task = PythonOperator(
+    task_id='feature_engineering',
+    python_callable=feature_engineering,
+    dag=dag
+)
+
+train_model_task = PythonOperator(
+    task_id='train_model',
+    python_callable=train_model,
+    dag=dag
+)
+
+download_data_task >> preprocess_data_task >> feature_engineering_task >> train_model_task
+```
+
+# Implement unit tests for relevant logic under src/tests, covering data preprocessing and feature engineering functions.
+```
+mkdir -p src/tests
+
+touch src/tests/test_preprocess_data.py
+
+nano src/tests/test_preprocess_data.py
+```
+```
+import unittest
+from preprocess_data import preprocess_data
+
+class TestPreprocessData(unittest.TestCase):
+    def test_preprocess_data(self):
+        input_path = 'data/raw/Data/Stocks'
+        output_path = 'data/processed/stocks.parquet'
+        preprocess_data(input_path, output_path)
+
+        # TODO: Add assertions to verify the correctness of the processed data
+```
+### Save the file ('Ctrl+X', then 'Y', then press Enter)
+
+```
+touch src/tests/test_feature_engineering.py
+
+nano src/tests/test_feature_engineering.py
+```
+```
+import unittest
+from feature_engineering import feature_engineering
+
+class TestFeatureEngineering(unittest.TestCase):
+    def test_feature_engineering(self):
+        input_path = 'data/processed/stocks.parquet'
+        output_path = 'data/processed/stocks_fe.parquet'
+        feature_engineering(input_path, output_path)
+
+        # TODO: Add assertions to verify the correctness of the feature engineered data
+
+```
+### Save the file ('Ctrl+X', then 'Y', then press Enter)
+
+# Create a FastAPI server under src/api that will load the trained model and serve predictions through the /predict endpoint.
+```
+mkdir -p src/api
+
+touch src/api/app.py
+
+nano src/api/app.py
+```
+```
+from fastapi import FastAPI
+from pydantic import BaseModel
+import joblib
+import pandas as pd
+
+app = FastAPI()
+
+class StockMarketData(BaseModel):
+    vol_moving_avg: float
+    adj_close_rolling_med: float
+
+@app.post('/predict')
+def predict(data: StockMarketData):
+    # Load the trained model
+    model = joblib.load('path/to/trained/model.pkl')
+
+    # Create a Pandas DataFrame from the input data
+    input_data = pd.DataFrame([{
+        'vol_moving_avg': data.vol_moving_avg,
+        'adj_close_rolling_med': data.adj_close_rolling_med
+    }])
+
+    # Make predictions using the trained model
+    predictions = model.predict(input_data)
+
+    # Return the predicted value
+    return int(predictions[0])
+```
+
+# Write a Dockerfile under the docker directory to containerize the ETL pipeline with necessary dependencies and build/execution configurations.
+```
+mkdir -p docker
+
+touch docker/Dockerfile
+
+nano docker/Dockerfile
+```
+```
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
+
+# Set the working directory to /app
+WORKDIR /app
+
+# Copy the current directory contents into the container at /app
+COPY . /app
+
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Set the environment variable for Airflow home
+ENV AIRFLOW_HOME /app
+
+# Expose the Airflow webserver and scheduler ports
+EXPOSE 8080 5555
+
+# Start the Airflow webserver and scheduler
+CMD ["airflow", "webserver", "--port", "8080"] 
+CMD ["airflow", "scheduler"]
+```
+
+# Test the ETL pipeline locally, ensure it works as expected, and store a log file from the pipeline execution.
+```
+pip freeze >> requirements.txt
+
+pip install -r requirements.txt
+```
+```
+export AIRFLOW_HOME=$(pwd)
+
+cp dags/stock_market_data_processing.py $AIRFLOW_HOME/dags/
+```
+```
+airflow db init
+
+airflow users create --username admin --firstname luis --lastname vega --role Admin --email luisd.vegag@gmail.com
+```
+
+## To store a log file from the pipeline execution, you can redirect the Airflow logs to a file by adding the following configuration to the airflow.cfg file:
+```
+[core]
+...
+dag_default_view = tree
+logging_level = INFO
+logging_config_class = log_config.LOGGING_CONFIG
+```
+## Then, create a log_config.py file under the src/etl directory with the following content:
+``` 
+touch src/etl/log_config.py
+
+nano src/etl/log_config.py
+``` 
+```
+import logging
+import sys
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+```
+```
+airflow webserver -D
+airflow scheduler -D
+```
+## Use next t stop servers
+```
+airflow webserver -D stop
+airflow scheduler -D stop
+```
+## Open http://localhost:8080
