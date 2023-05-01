@@ -351,11 +351,10 @@ pip freeze >> requirements.txt
 
 pip install -r requirements.txt
 ```
-```
-export AIRFLOW_HOME=$(pwd)
 
-cp dags/stock_market_data_processing.py $AIRFLOW_HOME/dags/
-```
+## Set AIRFLOW_HOME enviorment to project directory.
+Add `export AIRFLOW_HOME=/path/to/your/directory` to `.bashrc` or `.bash_profile`
+Then `source ~/.bashrc`
 ```
 airflow db init
 
