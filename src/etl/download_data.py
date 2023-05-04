@@ -1,11 +1,20 @@
 import os
-import urllib.request
+from kaggle.api.kaggle_api_extended import KaggleApi
+import zipfile
 
-def download_data(url, path):
+
+def download_data(user, dataset, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    urllib.request.urlretrieve(url, path)
+    api = KaggleApi()
+    api.authenticate()
+    api.dataset_download_files(user + "/" + dataset, path=path)
+    file = path + dataset + ".zip"
+    with zipfile.ZipFile(file, "r") as zip_ref:
+        zip_ref.extractall(os.path.dirname(file))
 
-if __name__ == '__main__':
-    url = 'https://www.kaggle.com/jacksoncrow/stock-market-dataset/download'
-    path = 'data/raw/stock-market-dataset.zip'
-    download_data(url, path)
+
+if __name__ == "__main__":
+    user = "jacksoncrow"
+    dataset = "stock-market-dataset"
+    path = "data/raw/"
+    download_data(user, dataset, path)

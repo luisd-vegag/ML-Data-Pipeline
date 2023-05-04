@@ -10,12 +10,8 @@ COPY . /app
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set the environment variable for Airflow home
-ENV AIRFLOW_HOME /app
+# Expose the FastAPI server port
+EXPOSE 8000
 
-# Expose the Airflow webserver and scheduler ports
-EXPOSE 8080 5555
-
-# Start the Airflow webserver and scheduler
-CMD ["airflow", "webserver", "--port", "8080"] 
-CMD ["airflow", "scheduler"]
+# Start the FastAPI server
+CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"]
